@@ -1,0 +1,27 @@
+---
+- name: Check current filesystem on the target disk
+  ansible.builtin.command: blkid -o value -s TYPE {{ nas_disk_device }}
+  register: existing_fs
+  changed_when: false
+  failed_when: false
+
+- name: Create ext4 filesystem (only if disk isn't already formatted)
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ nas_disk_device }}"
+    opts: "-L {{ ext4_label }}"
+  when: existing_fs.stdout != "ext4"
+
+- name: Ensure mountpoint directory exists
+  ansible.builtin.file:
+    path: "{{ ext4_mountpoint }}"
+    state: directory
+    mode: "0755"
+
+- name: Mount the drive and persist in fstab
+  ansible.posix.mount:
+    path: "{{ ext4_mountpoint }}"
+    src: "LABEL={{ ext4_label }}"
+    fstype: ext4
+    opts: defaults,noatime
+    state: mounted

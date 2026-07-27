@@ -1,0 +1,33 @@
+---
+- name: Configure Raspberry Pi 5 as a single-drive backup NAS
+  hosts: nas
+  become: true
+  vars_files:
+    - group_vars/nas.yml
+
+  pre_tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+  roles:
+    - role: pi_boot_config
+      tags: [boot_config]
+    - role: storage
+      tags: [storage]
+    - role: samba
+      tags: [samba]
+      when: enable_samba
+    - role: nfs
+      tags: [nfs]
+      when: enable_nfs
+
+  post_tasks:
+    - name: Show final storage summary
+      ansible.builtin.debug:
+        msg:
+          - "Storage backend: {{ storage_backend }}"
+          - "Mounted at: {{ (storage_backend == 'zfs') | ternary(zfs_mountpoint + '/' + zfs_dataset_name, ext4_mountpoint) }}"
+          - "Samba enabled: {{ enable_samba }}"
+          - "NFS enabled: {{ enable_nfs }}"

@@ -1,0 +1,4 @@
+# Managed by Ansible — changes will be overwritten on next playbook run.
+{% for export in nfs_exports %}
+{{ export.path }} {{ export.clients }}
+{% endfor %}

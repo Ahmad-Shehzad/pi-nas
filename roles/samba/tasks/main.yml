@@ -1,0 +1,59 @@
+---
+- name: Install Samba
+  ansible.builtin.apt:
+    name: samba
+    state: present
+
+- name: Create system users for Samba access (no shell login needed)
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    shell: /usr/sbin/nologin
+    create_home: false
+    state: present
+  loop: "{{ samba_users }}"
+
+- name: Set up Samba password per user (only prompts if not already configured)
+  ansible.builtin.include_tasks: samba_user_password.yml
+  loop: "{{ samba_users }}"
+  loop_control:
+    loop_var: samba_user
+
+- name: Deploy smb.conf
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "testparm -s %s"
+  notify: restart samba
+
+- name: Ensure share directories exist with correct ownership
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "0770"
+    owner: root
+    group: sambashare
+  loop: "{{ samba_shares }}"
+
+- name: Ensure sambashare group exists
+  ansible.builtin.group:
+    name: sambashare
+    state: present
+
+- name: Add Samba users to sambashare group
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    groups: sambashare
+    append: true
+  loop: "{{ samba_users }}"
+
+- name: Ensure Samba services are enabled and running
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - smbd
+    - nmbd

@@ -1,0 +1,21 @@
+---
+- name: Confirm target disk exists before doing anything destructive
+  ansible.builtin.stat:
+    path: "{{ nas_disk_device }}"
+  register: nas_disk_stat
+
+- name: Fail loudly if the configured disk device doesn't exist
+  ansible.builtin.fail:
+    msg: >
+      {{ nas_disk_device }} was not found on this host. Run `lsblk` on the
+      target and set nas_disk_device in group_vars/nas.yml before continuing.
+      Refusing to proceed to avoid formatting the wrong disk.
+  when: not nas_disk_stat.stat.exists
+
+- name: Include ZFS setup
+  ansible.builtin.include_tasks: zfs.yml
+  when: storage_backend == 'zfs'
+
+- name: Include ext4 setup
+  ansible.builtin.include_tasks: ext4.yml
+  when: storage_backend == 'ext4'

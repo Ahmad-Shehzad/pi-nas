@@ -1,0 +1,24 @@
+# Managed by Ansible — changes will be overwritten on next playbook run.
+[global]
+    workgroup = {{ samba_workgroup }}
+    server string = Pi 5 NAS
+    security = user
+    map to guest = never
+    log file = /var/log/samba/log.%m
+    max log size = 1000
+    dns proxy = no
+
+{% for share in samba_shares %}
+[{{ share.name }}]
+    path = {{ share.path }}
+    comment = {{ share.comment | default('') }}
+    browsable = yes
+    read only = {{ 'yes' if share.read_only else 'no' }}
+    guest ok = {{ 'yes' if share.guest_ok else 'no' }}
+{% if share.valid_users %}
+    valid users = {{ share.valid_users | join(', ') }}
+{% endif %}
+    create mask = 0660
+    directory mask = 0770
+
+{% endfor %}

@@ -1,0 +1,32 @@
+---
+- name: Locate boot config.txt (path differs across Raspberry Pi OS versions)
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /boot/firmware/config.txt
+    - /boot/config.txt
+  register: boot_config_candidates
+
+- name: Set boot_config_path fact
+  ansible.builtin.set_fact:
+    boot_config_path: "{{ (boot_config_candidates.results | selectattr('stat.exists', 'equalto', true) | first).item }}"
+
+- name: Ensure PCIe Gen 3 is forced (if enabled)
+  ansible.builtin.lineinfile:
+    path: "{{ boot_config_path }}"
+    line: "dtparam=pciex1_gen=3"
+    regexp: "^dtparam=pciex1_gen="
+    insertafter: EOF
+  when: pcie_force_gen3
+  notify: reboot pi
+
+- name: Ensure PCIe x1 interface is enabled
+  ansible.builtin.lineinfile:
+    path: "{{ boot_config_path }}"
+    line: "dtparam=pciex1"
+    regexp: "^dtparam=pciex1"
+    insertafter: EOF
+  notify: reboot pi
+
+- name: Flush handlers now so storage role sees an up-to-date kernel/PCIe state
+  ansible.builtin.meta: flush_handlers

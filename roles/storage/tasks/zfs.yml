@@ -1,0 +1,61 @@
+---
+- name: Install ZFS packages
+  ansible.builtin.apt:
+    name:
+      - zfsutils-linux
+      - zfs-dkms
+    state: present
+  register: zfs_install
+  # zfs-dkms needs to compile against the running kernel; on a fresh Pi OS
+  # image this can take several minutes the first time.
+
+- name: Check whether the pool already exists (idempotency guard)
+  ansible.builtin.command: zpool list {{ zfs_pool_name }}
+  register: zpool_check
+  changed_when: false
+  failed_when: false
+
+- name: Create ZFS pool on the single disk (single vdev, no redundancy)
+  ansible.builtin.command: >
+    zpool create -f
+    -o ashift=12
+    -O compression={{ zfs_compression }}
+    -O recordsize={{ zfs_recordsize }}
+    -O atime=off
+    -m none
+    {{ zfs_pool_name }} {{ nas_disk_device }}
+  when: zpool_check.rc != 0
+  changed_when: zpool_check.rc != 0
+  # -f forces creation past ZFS's "are you sure" whole-disk warnings.
+  # A single-disk vdev has NO redundancy: it protects against bitrot via
+  # checksums, but a drive failure still loses data. Keep real backups
+  # copied elsewhere too — this is a NAS, not a substitute for backups.
+
+- name: Check whether the dataset already exists
+  ansible.builtin.command: zfs list {{ zfs_pool_name }}/{{ zfs_dataset_name }}
+  register: zfs_dataset_check
+  changed_when: false
+  failed_when: false
+
+- name: Create dataset with its own mountpoint
+  ansible.builtin.command: >
+    zfs create -o mountpoint={{ zfs_mountpoint }}/{{ zfs_dataset_name }}
+    {{ zfs_pool_name }}/{{ zfs_dataset_name }}
+  when: zfs_dataset_check.rc != 0
+  changed_when: zfs_dataset_check.rc != 0
+
+- name: Ensure pool imports automatically on boot
+  ansible.builtin.systemd:
+    name: zfs-import-cache
+    enabled: true
+
+- name: Ensure ZFS mount service is enabled
+  ansible.builtin.systemd:
+    name: zfs-mount
+    enabled: true
+
+- name: Set up a weekly scrub (catches bitrot early — cheap insurance on a single disk)
+  ansible.builtin.cron:
+    name: "zfs scrub {{ zfs_pool_name }}"
+    special_time: weekly
+    job: "/usr/sbin/zpool scrub {{ zfs_pool_name }}"

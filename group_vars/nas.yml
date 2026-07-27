@@ -1,0 +1,70 @@
+---
+# ---------------------------------------------------------------------------
+# Core toggles
+# ---------------------------------------------------------------------------
+
+# Storage backend for the single drive: "zfs" or "ext4"
+# zfs gives you checksumming (bitrot detection) + easy snapshots, at the cost
+# of a bit more RAM usage and setup complexity. ext4 is simpler and "just works".
+storage_backend: zfs
+
+# Enable/disable each sharing protocol independently
+enable_samba: true
+enable_nfs: false
+
+# ---------------------------------------------------------------------------
+# Disk / storage config
+# ---------------------------------------------------------------------------
+
+# The block device for your single NAS drive. DOUBLE-CHECK THIS before running
+# — it will be wiped and formatted. Find it with `lsblk` on the target Pi.
+# Common values: /dev/sda (USB/SATA HAT drive), /dev/nvme0n1 (NVMe hat)
+nas_disk_device: /dev/sda
+
+# ZFS-specific settings (only used if storage_backend == zfs)
+zfs_pool_name: naspool
+zfs_dataset_name: data
+zfs_mountpoint: /mnt/nas
+zfs_compression: lz4
+# Recordsize tuning: 1M is generally good for large backup files/media.
+# Drop to 128K (ZFS default) if you'll store lots of small files.
+zfs_recordsize: 1M
+
+# ext4-specific settings (only used if storage_backend == ext4)
+ext4_mountpoint: /mnt/nas
+ext4_label: nasdata
+
+# ---------------------------------------------------------------------------
+# Boot / hardware config (Pi 5 + PCIe SATA HAT specifics)
+# ---------------------------------------------------------------------------
+
+# Force PCIe Gen 3 (the Pi 5 defaults to Gen 2 for stability with some HATs).
+# Try this once your hardware is in and test stability before trusting it
+# for real backups — some HAT/cable combos are flaky at Gen 3.
+pcie_force_gen3: true
+
+# ---------------------------------------------------------------------------
+# Samba config
+# ---------------------------------------------------------------------------
+
+samba_workgroup: WORKGROUP
+samba_shares:
+  - name: backup
+    path: "{{ (storage_backend == 'zfs') | ternary(zfs_mountpoint + '/' + zfs_dataset_name, ext4_mountpoint) }}"
+    comment: "Backup share"
+    valid_users: "{{ samba_users | map(attribute='name') | list }}"
+    read_only: false
+    guest_ok: false
+
+# Users to create for Samba access. Passwords are set interactively by the
+# playbook (see README) rather than stored in plaintext here.
+samba_users:
+  - name: backupuser
+
+# ---------------------------------------------------------------------------
+# NFS config (only used if enable_nfs == true)
+# ---------------------------------------------------------------------------
+
+nfs_exports:
+  - path: "{{ (storage_backend == 'zfs') | ternary(zfs_mountpoint + '/' + zfs_dataset_name, ext4_mountpoint) }}"
+    clients: "192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)"

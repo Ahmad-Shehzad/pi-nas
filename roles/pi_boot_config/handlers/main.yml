@@ -1,0 +1,5 @@
+---
+- name: reboot pi
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+    msg: "Rebooting to apply boot config.txt changes (PCIe settings)"
