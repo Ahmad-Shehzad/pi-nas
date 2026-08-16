@@ -22,6 +22,9 @@
     - role: nfs
       tags: [nfs]
       when: enable_nfs
+    - role: rsync
+      tags: [rsync]
+      when: enable_rsync
 
   post_tasks:
     - name: Show final storage summary

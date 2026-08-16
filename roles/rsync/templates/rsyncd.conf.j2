@@ -1,0 +1,17 @@
+uid = nobody
+gid = sambashare
+use chroot = yes
+max connections = 4
+pid file = /var/run/rsyncd.pid
+log file = /var/log/rsyncd.log
+port = {{ rsync_port | default(873) }}
+
+{% for module in rsync_modules %}
+[{{ module.name }}]
+path = {{ module.path }}
+comment = {{ module.comment | default(module.name) }}
+read only = {{ module.read_only | default(false) | lower }}
+auth users = {{ module.users | map(attribute='name') | join(', ') }}
+secrets file = /etc/rsyncd.secrets
+
+{% endfor %}

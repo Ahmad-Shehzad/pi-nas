@@ -1,0 +1,37 @@
+---
+- name: Install rsync
+  apt:
+    name: rsync
+    state: present
+    update_cache: yes
+
+- name: Deploy rsyncd.conf
+  template:
+    src: rsyncd.conf.j2
+    dest: /etc/rsyncd.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart rsync
+
+- name: Deploy rsyncd.secrets
+  template:
+    src: rsyncd.secrets.j2
+    dest: /etc/rsyncd.secrets
+    owner: root
+    group: root
+    mode: '0600'
+  notify: restart rsync
+
+- name: Enable and start rsync daemon
+  systemd:
+    name: rsync
+    enabled: yes
+    state: started
+
+- name: Allow rsync port through ufw (if ufw is active)
+  ufw:
+    rule: allow
+    port: "{{ rsync_port | default(873) }}"
+    proto: tcp
+  when: ansible_facts.services['ufw.service'] is defined

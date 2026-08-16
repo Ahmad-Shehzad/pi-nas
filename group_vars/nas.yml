@@ -11,6 +11,7 @@ storage_backend: zfs
 # Enable/disable each sharing protocol independently
 enable_samba: true
 enable_nfs: false
+enable_rsync: true
 
 # ---------------------------------------------------------------------------
 # Disk / storage config
@@ -68,3 +69,16 @@ samba_users:
 nfs_exports:
   - path: "{{ (storage_backend == 'zfs') | ternary(zfs_mountpoint + '/' + zfs_dataset_name, ext4_mountpoint) }}"
     clients: "192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)"
+
+# ---------------------------------------------------------------------------
+# rsync config
+# ---------------------------------------------------------------------------
+
+rsync_port: 873
+rsync_modules:
+  - name: synology_backup
+    path: /path/to/your/shared/folder    # match wherever your Samba share actually lives on disk
+    read_only: false
+    users:
+      - name: backupuser
+        password: "{{ vault_rsync_backupuser_password }}"
