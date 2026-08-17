@@ -44,6 +44,16 @@ ext4_label: nasdata
 # for real backups — some HAT/cable combos are flaky at Gen 3.
 pcie_force_gen3: true
 
+# Wake-on-LAN: lets you power the Pi back on remotely by sending a magic
+# packet to its Ethernet MAC address, instead of leaving it running 24/7.
+# Requires: (1) the NIC/driver to actually support it -- the playbook checks
+# this with ethtool and warns if not -- and (2) your PSU/board to keep
+# standby power to the Ethernet chip while "off". Test on your hardware
+# before relying on it; support for waking from a full power-off (not just
+# suspend) varies a lot on Pi boards.
+enable_wol: false
+wol_interface: eth0
+
 # ---------------------------------------------------------------------------
 # Samba config
 # ---------------------------------------------------------------------------

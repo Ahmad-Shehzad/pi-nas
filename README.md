@@ -17,6 +17,13 @@ single block device — USB or PCIe). Handles boot/PCIe config, storage
    - `storage_backend`: `zfs` (default, recommended) or `ext4` (simpler)
    - `samba_users` / `samba_shares`: adjust names and paths as you like
    - `enable_nfs`: set `true` if you also want NFS exports
+  - `enable_wol`: set `true` to enable Wake-on-LAN (magic packet) on
+    `wol_interface` (default `eth0`), so you can power the Pi back on
+    remotely instead of leaving it running all the time. The playbook
+    installs `ethtool`, checks the NIC advertises magic-packet support, and
+    installs a systemd service so the setting survives reboots -- but actual
+    wake-from-off behavior still depends on your board/PSU, so test it
+    before relying on it.
 
 ## First-time setup (on your control machine, i.e. your laptop, not the Pi)
 

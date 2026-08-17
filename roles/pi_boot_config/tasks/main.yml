@@ -30,3 +30,56 @@
 
 - name: Flush handlers now so storage role sees an up-to-date kernel/PCIe state
   ansible.builtin.meta: flush_handlers
+
+- name: Install ethtool (required for Wake-on-LAN)
+  ansible.builtin.apt:
+    name: ethtool
+    state: present
+  when: enable_wol
+
+- name: Check hardware Wake-on-LAN support for {{ wol_interface }}
+  ansible.builtin.shell: "set -o pipefail && ethtool {{ wol_interface }} | grep -A1 'Supports Wake-on'"
+  args:
+    executable: /bin/bash
+  register: wol_support_check
+  changed_when: false
+  failed_when: false
+  when: enable_wol
+
+- name: Warn if this NIC doesn't advertise magic-packet Wake-on-LAN support
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: ethtool doesn't report 'g' (magic packet) support for
+      {{ wol_interface }}. Wake-on-LAN may not work reliably on this hardware
+      -- check `ethtool {{ wol_interface }}` on the Pi and your PSU/board's
+      standby power behavior before relying on it.
+  when:
+    - enable_wol
+    - wol_support_check is defined
+    - "'g' not in (wol_support_check.stdout | default(''))"
+
+- name: Deploy systemd service to re-apply Wake-on-LAN setting on every boot
+  ansible.builtin.template:
+    src: wol.service.j2
+    dest: /etc/systemd/system/wol.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: enable_wol
+  notify: restart wol service
+
+- name: Enable and start the Wake-on-LAN systemd service
+  ansible.builtin.systemd:
+    name: wol
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: enable_wol
+
+- name: Remove Wake-on-LAN systemd service when disabled
+  ansible.builtin.systemd:
+    name: wol
+    enabled: false
+    state: stopped
+  when: not enable_wol
+  ignore_errors: true
